@@ -117,10 +117,15 @@ def flipkart_scraper(filename):
         # curr_pages = "NA"
         # curr_per_page_ratio = "NA"
         try:
-            driver.get('https://www.flipkart.com/books/pr?sid=bks&q='+str(current_isbn))
-            search_result = driver.find_element_by_class_name('s1Q9rs')
-            search_result_link = search_result.get_attribute("href")
-            driver.get(search_result_link)
+            flipkart_link = "https://www.flipkart.com/books/pr?sid=bks&q="
+            if not current_isbn.isdigit():
+                flipkart_link = 'https://www.flipkart.com/vivo-s1-pro-jazzy-blue-128-gb/p/itm60bf6c78dfe9a?pid='
+                driver.get(flipkart_link+str(current_isbn))
+            else:
+                driver.get(flipkart_link + str(current_isbn))
+                search_result = driver.find_element_by_class_name('s1Q9rs')
+                search_result_link = search_result.get_attribute("href")
+                driver.get(search_result_link)
             # seller_name = driver.find_element_by_id("sellerName")
             if line_count == 1:
                 pincode = driver.find_element_by_class_name('_36yFo0')
