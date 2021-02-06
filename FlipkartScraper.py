@@ -18,6 +18,7 @@ from tkinter import filedialog
 import tkinter.font as font
 import os
 import ntpath
+import sys
 
 error_occurred = False
 filename = None
@@ -27,6 +28,7 @@ flipkart_val = 0
 amazon_val = 0
 directory = None
 output_file = None
+global_pincode = 0
 
 def UploadAction(event=None):
     global directory
@@ -128,8 +130,9 @@ def flipkart_scraper(filename):
                 driver.get(search_result_link)
             # seller_name = driver.find_element_by_id("sellerName")
             if line_count == 1:
+                global global_pincode
                 pincode = driver.find_element_by_class_name('_36yFo0')
-                pincode.send_keys('400013')
+                pincode.send_keys(global_pincode)
                 pincode_check = driver.find_element_by_class_name('_2P_LDn')
                 pincode_check.click()
                 time.sleep(5)
@@ -237,6 +240,11 @@ def setup_ui():
     global total_lines
     global flipkart_val
     global amazon_val
+    global global_pincode
+    def Take_input():
+        global global_pincode
+        global_pincode = int(pincode.get("1.0", "end-1c"))
+
     root = tk.Tk()
     root.geometry("600x200")
     root.title("Select Your Folder To Find Details in Flipkart")
@@ -246,6 +254,13 @@ def setup_ui():
     button = tk.Button(root, bg='yellow', text='Select Folder', command=UploadAction, font=myFont)
     button.configure(width=600, height=2)
     button.pack()
+    pincode = tk.Text(root, height=2,
+                      width=10,
+                      bg="light yellow")
+    pincode.pack()
+    save = tk.Button(root, bg='yellow', text='Save PinCode', command=lambda: Take_input())
+    save.configure(width=600, height=2)
+    save.pack()
     label = tk.Label(root)
     label.pack()
 
