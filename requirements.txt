@@ -1,0 +1,4 @@
+selenium
+pandas
+chromedriver_autoinstaller
+openpyxl
