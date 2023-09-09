@@ -8,22 +8,22 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
-
-import chromedriver_autoinstaller
 import pandas as pd
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.firefox import GeckoDriverManager
 
-chromedriver_autoinstaller.install(cwd=True)
+FIREFOX_PATH = GeckoDriverManager().install()
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGS_DIR = os.path.join(PROJECT_DIR, 'logs')
 os.makedirs(LOGS_DIR, exist_ok=True)
 DAY_LOG_DIR = os.path.join(LOGS_DIR, datetime.datetime.now().strftime('%Y-%m-%d'))
 os.makedirs(DAY_LOG_DIR, exist_ok=True)
-CONFIG_JSON = os.path.join(PROJECT_DIR, 'config.json')
+CONFIG_JSON = 'config.json'
 FLIPKART_LINK = "https://www.flipkart.com/books/pr?sid=bks&q="
 
 
@@ -66,7 +66,7 @@ class FlipkartScraper:
         self.id = id
         self.total_rows = total_rows
         self.input_file = input_file
-        self.output_file = output_file.replace('xlsx','csv')
+        self.output_file = output_file.replace('xlsx', 'csv')
         self.pincode = pincode
         self.isbn = str(isbn)
         self.logger = set_logger(str(self.isbn))
@@ -79,6 +79,13 @@ class FlipkartScraper:
         self.other_sellers_list = []
         self.repro_listed = "No"
         self.seller_id = -1
+        try:
+            self.main()
+        except Exception as e:
+            self.logger.error(f'Exception : {e}')
+        finally:
+            self.driver.quit()
+        # self.main()
 
     def write_excel_sheet(self):
         try:
@@ -103,8 +110,9 @@ class FlipkartScraper:
             options = Options()
             options.add_argument('--headless')
             # options.add_argument('--no-sandbox')
-            options.add_experimental_option('excludeSwitches', ['enable-logging'])
-            self.driver = webdriver.Chrome(options=options)
+            # options.add_experimental_option('excludeSwitches', ['enable-logging'])
+            self.driver = webdriver.Firefox(service=Service(executable_path=FIREFOX_PATH),
+                                            options=options)
             self.driver.implicitly_wait(10)
             self.logger.info('Driver initiated')
         except Exception as e:
@@ -135,16 +143,13 @@ class FlipkartScraper:
 
     def set_pincode(self):
         try:
-            WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "div[class='_36yFo0']"))
-            )
-            pincode_setter = self.driver.find_element(By.CLASS_NAME, '_36yFo0')
+            pincode_setter = self.driver.find_element(By.ID, 'pincodeInputId')
             pincode_setter.send_keys(self.pincode)
             pincode_check = self.driver.find_element(By.CLASS_NAME, '_2P_LDn')
             pincode_check.click()
             time.sleep(5)
         except Exception as e:
-            self.logger.error(f"{inspect.currentframe().f_code.co_name} : {e}")
+            self.logger.error(f"{inspect.currentframe().f_code.co_name} : {e.args[0]}")
 
     def get_buybox_seller(self):
         try:
@@ -162,9 +167,6 @@ class FlipkartScraper:
             self.logger.error(f"{inspect.currentframe().f_code.co_name} : {e}")
 
     def get_buybox_name(self):
-        WebDriverWait(self.driver, 10).until(
-            EC.presence_of_element_located((By.ID, "sellerName"))
-        )
         self.buybox_seller_id = self.driver.find_element(By.ID, "sellerName")
         self.buybox_seller_name = str(
             self.buybox_seller_id.find_element(By.TAG_NAME, 'span').find_element(By.TAG_NAME, 'span').text)
@@ -176,9 +178,6 @@ class FlipkartScraper:
         self.logger.info(f'Buybox Seller Price : {self.buybox_seller_price}')
 
     def get_buybox_delivery(self):
-        WebDriverWait(self.driver, 10).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "div[class='_3XINqE']"))
-        )
         self.buybox_seller_delivery = str(
             self.driver.find_element(By.CSS_SELECTOR, "div[class='_3XINqE']").text).replace("Delivery by", '')
         self.logger.info(f'Buybox Delivery Price : {self.buybox_seller_delivery}')
@@ -186,22 +185,22 @@ class FlipkartScraper:
     def get_other_sellers_page(self):
         try:
             self.logger.info('Getting Other Sellers Page')
-            WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "div[class='_38I6QT']"))
-            )
+            # WebDriverWait(self.driver, 10).until(
+            #     EC.presence_of_element_located((By.CLASS_NAME, "div[class='_38I6QT']"))
+            # )
             self.other_sellers_link = self.driver.find_element(By.CLASS_NAME, '_38I6QT').find_element(By.TAG_NAME,
                                                                                                       'a').get_attribute(
                 "href")
             self.driver.get(self.other_sellers_link)
-            # time.sleep(4)
+            time.sleep(4)
         except Exception as e:
             self.logger.error(f"{inspect.currentframe().f_code.co_name} : {e}")
 
     def get_other_sellers_selector(self):
         try:
-            WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "div[class='_2Y3EWJ']"))
-            )
+            # WebDriverWait(self.driver, 10).until(
+            #     EC.presence_of_element_located((By.CSS_SELECTOR, "div[class='_2Y3EWJ']"))
+            # )
             self.sellers_list = self.driver.find_elements(By.CSS_SELECTOR, "div[class='_2Y3EWJ']")
 
             if self.sellers_list:
@@ -222,17 +221,23 @@ class FlipkartScraper:
 
     def get_seller_name(self):
         self.other_seller = str(self.seller.find_element(By.CSS_SELECTOR, "div[class='_3enH42']").text)
+        if not self.buybox_seller_name:
+            self.buybox_seller_name = self.other_seller
         self.logger.info(f'Other Seller Name : {self.other_seller}')
 
     def get_seller_price(self):
         self.other_seller_price = get_number(
             str(self.seller.find_element(By.CSS_SELECTOR, "div[class='_30jeq3']").text))
+        if not self.buybox_seller_price:
+            self.buybox_seller_price = self.other_seller_price
         self.logger.info(f'Other Seller Price : {self.other_seller_price}')
 
     def get_seller_delivery(self):
         self.other_seller_delivery = str(self.seller.find_element(By.CSS_SELECTOR,
-                                                                   "div[class='_3XINqE']").text).replace("Delivery by",
-                                                                                                         '')
+                                                                  "div[class='_3XINqE']").text).replace("Delivery by",
+                                                                                                        '')
+        if not self.buybox_seller_delivery:
+            self.buybox_seller_delivery = self.other_seller_delivery
         self.logger.info(f'Other Seller Delivery : {self.other_seller_delivery}')
 
     def add_seller_to_list(self):
@@ -255,10 +260,18 @@ class FlipkartScraper:
         }
 
     def main(self):
+        self.setup_flipkart_driver()
+        self.open_flipkart_page()
+        self.get_search_result()
+        self.set_pincode()
+        self.get_buybox_seller()
+        self.get_other_sellers_page()
+        self.get_other_sellers_selector()
+        self.prepare_record()
+        self.write_excel_sheet()
         function_order = ['setup_flipkart_driver', 'open_flipkart_page', 'get_search_result', 'set_pincode',
-                          'get_buybox_seller', 'get_other_sellers_page','get_other_sellers_selector','prepare_record', 'write_excel_sheet']
-        for func in function_order:
-            eval(f'self.{func}()')
+                          'get_buybox_seller', 'get_other_sellers_page', 'get_other_sellers_selector', 'prepare_record',
+                          'write_excel_sheet']
 
 
 class FlipkartReader:
@@ -268,20 +281,21 @@ class FlipkartReader:
         self.directory = self.config_json['FILE_DIR'].replace(' ', '\ ')
         self.threads = self.config_json['THREADS']
         self.pincode = self.config_json['PINCODE']
-        self.output_directory = self.directory + 'flipkart_output'
+        self.output_directory = os.path.join(self.directory, 'flipkart_output')
         self.logger = set_logger('main')
         os.makedirs(self.output_directory, exist_ok=True)
 
     def get_list_of_files(self):
         for self.file_name in os.listdir(self.directory):
-            self.logger.info(f'File Name : {self.file_name}')
-            self.full_file_name = os.path.join(self.directory, self.file_name)
-            self.logger.info(f'Full File Name : {self.full_file_name}')
-            self.output_file_name = os.path.join(self.output_directory, self.file_name)
-            self.logger.info(f'Output File Name : {self.output_file_name}')
-            self.get_isbn_list()
-            self.find_total_isbn_count()
-            self.execute_thread()
+            if '.xlsx' in self.file_name or '.xls' in self.file_name:
+                self.logger.info(f'File Name : {self.file_name}')
+                self.full_file_name = os.path.join(self.directory, self.file_name)
+                self.logger.info(f'Full File Name : {self.full_file_name}')
+                self.output_file_name = os.path.join(self.output_directory, self.file_name)
+                self.logger.info(f'Output File Name : {self.output_file_name}')
+                self.get_isbn_list()
+                self.find_total_isbn_count()
+                self.execute_thread()
 
     def get_isbn_list(self):
         try:
@@ -296,20 +310,29 @@ class FlipkartReader:
         self.total_isbn_count = len(self.isbn_list)
 
     def execute_thread(self):
-        with ThreadPoolExecutor(max_workers=self.threads) as executor:
-            for current_isbn_idx in range(len(self.isbn_list)):
-                executor.submit(FlipkartScraper(id=current_isbn_idx + 1, total_rows=self.total_isbn_count,
-                                                input_file=self.full_file_name, output_file=self.output_file_name,
-                                                pincode=self.pincode, isbn=self.isbn_list[current_isbn_idx]).main)
+        thread_list = []
+        thread_count = 0
+        total_threads = self.threads
+        for current_isbn_idx in range(len(self.isbn_list)):
+            thread_count += 1
+            curr_thread = threading.Thread(target=FlipkartScraper, args=(
+            current_isbn_idx + 1, self.total_isbn_count, self.full_file_name, self.output_file_name, self.pincode,
+            self.isbn_list[current_isbn_idx]))
+            curr_thread.start()
+            thread_list.append(curr_thread)
+            if thread_count == total_threads:
+                for i in range(thread_count):
+                    thread_list[i].join()
+                thread_list = []
+                thread_count = 0
+        for i in range(len(thread_list)):
+            thread_list[i].join()
 
     def execute_normal(self):
         for current_isbn_idx in range(len(self.isbn_list)):
             FlipkartScraper(id=current_isbn_idx + 1, total_rows=self.total_isbn_count,
                             input_file=self.full_file_name, output_file=self.output_file_name,
-                            pincode=self.pincode, isbn=self.isbn_list[current_isbn_idx]).main()
-
-
-
+                            pincode=self.pincode, isbn=self.isbn_list[current_isbn_idx])
 
 
 flipkart_reader = FlipkartReader()
