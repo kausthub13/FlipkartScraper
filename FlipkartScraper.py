@@ -21,7 +21,7 @@ import ntpath
 import sys
 from concurrent.futures import ThreadPoolExecutor
 import chromedriver_autoinstaller
-
+chromedriver_autoinstaller.install(cwd=True)
 error_occurred = False
 filename = None
 row_count = 0
@@ -72,7 +72,7 @@ def next_isbn(filename):
 
 
 def setup_flipkart_driver():
-    chromedriver_autoinstaller.install(cwd=True, path=r"/Users/kkesavad/PycharmProjects/FlipkartScraper/chromedriver")
+
     options = Options()
     options.headless = False
     # options.add_argument('headless')

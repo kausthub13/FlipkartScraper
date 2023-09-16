@@ -3,10 +3,16 @@ import datetime
 import inspect
 import json
 import logging
+import ntpath
 import os
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
+import tkinter as tk
+from mmap import mmap
+from tkinter import *
+from tkinter import filedialog, font
 
 import pandas as pd
 from kivy.app import App
@@ -16,13 +22,15 @@ from kivy.uix.filechooser import FileChooserIconView
 from kivy.uix.textinput import TextInput
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.firefox.options import Options
-from selenium.webdriver.firefox.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
-from webdriver_manager.firefox import GeckoDriverManager
+from webdriver_manager.chrome import ChromeDriverManager
 
-FIREFOX_PATH = GeckoDriverManager().install()
+# FIREFOX_PATH = ChromeDriverManager().install()
+FIREFOX_PATH=r'C:\Users\kesavadas.k\.wdm\drivers\chromedriver\win64\116.0.5845.188\chromedriver-win32\chromedriver.exe'
+print(FIREFOX_PATH)
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 FLIPKART_LINK = "https://www.flipkart.com/books/pr?sid=bks&q="
 
@@ -30,17 +38,30 @@ threads = None
 pincode = None
 folder_path = None
 
+# driver = webdriver.Chrome(service=Service(executable_path=FIREFOX_PATH))
+# driver.get('https://www.google.com')
+# print("Reached Here")
+# time.sleep(5)
+
 class InputForm(BoxLayout):
     def __init__(self, **kwargs):
         super(InputForm, self).__init__(**kwargs)
         self.orientation = 'vertical'
 
-        self.pincode_input = TextInput(hint_text="Enter Pincode")
-        self.threads_input = TextInput(hint_text="Enter Number of Threads")
+        self.pincode_input = TextInput(hint_text="Enter Pincode",multiline=False,
+            font_size=20,
+            size_hint_y=None,
+            height=50)
+        self.threads_input = TextInput(hint_text="Enter Number of Threads",
+            multiline=False,
+            font_size=20,
+            size_hint_y=None,
+            height=50)
 
-        self.folder_chooser = FileChooserIconView()
+        self.folder_chooser = FileChooserIconView(size_hint=(1, 1),path='.')
 
-        self.submit_button = Button(text="Submit")
+        self.submit_button = Button(text="Submit",size_hint_y=None,
+            height=50)
         self.submit_button.bind(on_press=self.on_submit)
 
         self.add_widget(self.pincode_input)
@@ -105,7 +126,8 @@ class FlipkartScraper:
         self.id = id
         self.total_rows = total_rows
         self.input_file = input_file
-        self.output_file = output_file.replace('xlsx', 'csv')
+        # self.output_file = output_file.replace('xlsx', 'csv')
+        self.output_file = output_file
         self.pincode = pincode
         self.isbn = str(isbn)
         self.logger = set_logger(str(self.isbn))
@@ -123,25 +145,43 @@ class FlipkartScraper:
         except Exception as e:
             self.logger.error(f'Exception : {e}')
         finally:
+            self.prepare_record()
+            self.write_excel_sheet()
             self.driver.quit()
+            self.logger.info('Driver Closed')
         # self.main()
 
+    # def write_excel_sheet(self):
+    #     try:
+    #         self.logger.info(f'Writing to excel sheet : {self.output_file}')
+    #         # self.logger.info(f'Record To Write : {self.record}')
+    #         with threading.Lock():
+    #             if not os.path.exists(self.output_file):
+    #                 self.write_header = True
+    #             else:
+    #                 self.write_header = False
+    #             with open(self.output_file, 'a') as csvfile:
+    #                 writer = csv.DictWriter(csvfile, fieldnames=self.record.keys())
+    #                 if self.write_header:
+    #                     writer.writeheader()
+    #                 writer.writerow(self.record)
+    #     except Exception as e:
+    #         self.logger.error(f"{inspect.currentframe().f_code.co_name} : {e}")
+
     def write_excel_sheet(self):
-        try:
-            self.logger.info(f'Writing to excel sheet : {self.output_file}')
-            self.logger.info(f'Record To Write : {self.record}')
-            with threading.Lock():
-                if not os.path.exists(self.output_file):
-                    self.write_header = True
-                else:
-                    self.write_header = False
-                with open(self.output_file, 'a') as csvfile:
-                    writer = csv.DictWriter(csvfile, fieldnames=self.record.keys())
-                    if self.write_header:
-                        writer.writeheader()
-                    writer.writerow(self.record)
-        except Exception as e:
-            self.logger.error(f"{inspect.currentframe().f_code.co_name} : {e}")
+        with threading.Lock():
+            print(self.record)
+
+            if os.path.exists(self.output_file):
+                df = pd.read_excel(self.output_file,engine='openpyxl')
+                df.loc[len(df)] = self.record
+            else:
+                for key in self.record:
+                    self.record[key] = [self.record[key]]
+
+                df = pd.DataFrame(self.record)
+            df.to_excel(self.output_file,index=False,engine='openpyxl')
+            self.logger.info('Write Entry To Excel Sheet')
 
     def setup_flipkart_driver(self):
         try:
@@ -150,7 +190,7 @@ class FlipkartScraper:
             options.add_argument('--headless')
             # options.add_argument('--no-sandbox')
             # options.add_experimental_option('excludeSwitches', ['enable-logging'])
-            self.driver = webdriver.Firefox(service=Service(executable_path=FIREFOX_PATH),
+            self.driver = webdriver.Chrome(service=Service(executable_path=FIREFOX_PATH),
                                             options=options)
             self.driver.implicitly_wait(10)
             self.logger.info('Driver initiated')
@@ -169,16 +209,17 @@ class FlipkartScraper:
     def get_search_result(self):
         try:
             self.logger.info(f'Getting Search Link')
-            WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "s1Q9rs"))
-            )
+            # WebDriverWait(self.driver, 10).until(
+            #     EC.presence_of_element_located((By.CLASS_NAME, "s1Q9rs"))
+            # )
             self.search_result_link = self.driver.find_element(By.CLASS_NAME, 's1Q9rs').get_attribute('href')
             self.logger.info('Search Link Obtained')
             self.driver.get(self.search_result_link)
             self.logger.info('Opening Book Page')
-
+            return True
         except Exception as e:
             self.logger.error(f"{inspect.currentframe().f_code.co_name} : {e}")
+            return False
 
     def set_pincode(self):
         try:
@@ -252,6 +293,9 @@ class FlipkartScraper:
                     self.add_seller_to_list()
                     if self.check_repro_seller(self.other_seller) == 'Yes':
                         self.repro_listed = 'Yes'
+                final_list = [','.join(other_seller) for other_seller in self.other_sellers_list]
+                final_list = ':'.join(final_list)
+                self.other_sellers_list = final_list
             else:
                 self.logger.info('No Other Sellers Found')
         except Exception as e:
@@ -281,7 +325,7 @@ class FlipkartScraper:
 
     def add_seller_to_list(self):
         self.other_sellers_list.append(
-            [self.seller_id, self.other_seller, self.other_seller_price, self.other_seller_delivery])
+            [str(self.seller_id), str(self.other_seller), str(self.other_seller_price), str(self.other_seller_delivery)])
 
     def check_repro_seller(self, seller_name):
         return 'Yes' if 'repro' in seller_name.lower() else 'No'
@@ -301,16 +345,11 @@ class FlipkartScraper:
     def main(self):
         self.setup_flipkart_driver()
         self.open_flipkart_page()
-        self.get_search_result()
-        self.set_pincode()
-        self.get_buybox_seller()
-        self.get_other_sellers_page()
-        self.get_other_sellers_selector()
-        self.prepare_record()
-        self.write_excel_sheet()
-        function_order = ['setup_flipkart_driver', 'open_flipkart_page', 'get_search_result', 'set_pincode',
-                          'get_buybox_seller', 'get_other_sellers_page', 'get_other_sellers_selector', 'prepare_record',
-                          'write_excel_sheet']
+        if self.get_search_result():
+            self.set_pincode()
+            self.get_buybox_seller()
+            self.get_other_sellers_page()
+            self.get_other_sellers_selector()
 
 
 class FlipkartReader:
@@ -333,7 +372,7 @@ class FlipkartReader:
                 self.logger.info(f'Output File Name : {self.output_file_name}')
                 self.get_isbn_list()
                 self.find_total_isbn_count()
-                self.execute_thread()
+                self.execute_normal()
 
     def get_isbn_list(self):
         try:
@@ -348,23 +387,11 @@ class FlipkartReader:
         self.total_isbn_count = len(self.isbn_list)
 
     def execute_thread(self):
-        thread_list = []
-        thread_count = 0
-        total_threads = self.threads
-        for current_isbn_idx in range(len(self.isbn_list)):
-            thread_count += 1
-            curr_thread = threading.Thread(target=FlipkartScraper, args=(
-            current_isbn_idx + 1, self.total_isbn_count, self.full_file_name, self.output_file_name, self.pincode,
-            self.isbn_list[current_isbn_idx]))
-            curr_thread.start()
-            thread_list.append(curr_thread)
-            if thread_count == total_threads:
-                for i in range(thread_count):
-                    thread_list[i].join()
-                thread_list = []
-                thread_count = 0
-        for i in range(len(thread_list)):
-            thread_list[i].join()
+        with ThreadPoolExecutor(max_workers=self.threads) as executor:
+            for current_isbn_idx in range(len(self.isbn_list)):
+                self.logger.info(f'ISBN : {self.isbn_list[current_isbn_idx]}')
+                executor.submit(FlipkartScraper,current_isbn_idx + 1, self.total_isbn_count, self.full_file_name, self.output_file_name, self.pincode,
+                self.isbn_list[current_isbn_idx])
 
     def execute_normal(self):
         for current_isbn_idx in range(len(self.isbn_list)):
