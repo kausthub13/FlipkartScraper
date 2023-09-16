@@ -6,25 +6,64 @@ import logging
 import os
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 from datetime import date
+
 import pandas as pd
+from kivy.app import App
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.button import Button
+from kivy.uix.filechooser import FileChooserListView
+from kivy.uix.textinput import TextInput
 from selenium import webdriver
+from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
 from webdriver_manager.firefox import GeckoDriverManager
 
 FIREFOX_PATH = GeckoDriverManager().install()
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-LOGS_DIR = os.path.join(PROJECT_DIR, 'logs')
-os.makedirs(LOGS_DIR, exist_ok=True)
-DAY_LOG_DIR = os.path.join(LOGS_DIR, datetime.datetime.now().strftime('%Y-%m-%d'))
-os.makedirs(DAY_LOG_DIR, exist_ok=True)
-CONFIG_JSON = 'config.json'
 FLIPKART_LINK = "https://www.flipkart.com/books/pr?sid=bks&q="
+
+threads = None
+pincode = None
+folder_path = None
+
+class InputForm(BoxLayout):
+    def __init__(self, **kwargs):
+        super(InputForm, self).__init__(**kwargs)
+        self.orientation = 'vertical'
+
+        self.pincode_input = TextInput(hint_text="Enter Pincode")
+        self.threads_input = TextInput(hint_text="Enter Number of Threads")
+
+        self.folder_chooser = FileChooserListView()
+
+        self.submit_button = Button(text="Submit")
+        self.submit_button.bind(on_press=self.on_submit)
+
+        self.add_widget(self.pincode_input)
+        self.add_widget(self.threads_input)
+        self.add_widget(self.folder_chooser)
+        self.add_widget(self.submit_button)
+
+    def on_submit(self, instance):
+        global pincode,threads,folder_path
+        pincode = self.pincode_input.text
+        threads = self.threads_input.text
+        folder_path = self.folder_chooser.path
+
+        # You can use these values outside of the application.
+        # For example, print them to the console:
+        print(f"Pincode: {pincode}, Threads: {threads}, Folder: {folder_path}")
+
+        App.get_running_app().stop()
+
+
+class MyApp(App):
+    def build(self):
+        return InputForm()
 
 
 def set_logger(log_name=''):
@@ -276,14 +315,13 @@ class FlipkartScraper:
 
 class FlipkartReader:
     def __init__(self):
-        with open(CONFIG_JSON) as config_file:
-            self.config_json = json.loads(config_file.read())
-        self.directory = self.config_json['FILE_DIR'].replace(' ', '\ ')
-        self.threads = self.config_json['THREADS']
-        self.pincode = self.config_json['PINCODE']
+        self.directory = folder_path.replace(' ', '\ ')
+        self.threads = int(threads)
+        self.pincode = pincode
         self.output_directory = os.path.join(self.directory, 'flipkart_output')
         self.logger = set_logger('main')
         os.makedirs(self.output_directory, exist_ok=True)
+        self.get_list_of_files()
 
     def get_list_of_files(self):
         for self.file_name in os.listdir(self.directory):
@@ -335,5 +373,10 @@ class FlipkartReader:
                             pincode=self.pincode, isbn=self.isbn_list[current_isbn_idx])
 
 
-flipkart_reader = FlipkartReader()
-flipkart_reader.get_list_of_files()
+if __name__ == '__main__':
+    MyApp().run()
+    LOGS_DIR = os.path.join(folder_path, 'logs')
+    os.makedirs(LOGS_DIR, exist_ok=True)
+    DAY_LOG_DIR = os.path.join(LOGS_DIR, datetime.datetime.now().strftime('%Y-%m-%d'))
+    os.makedirs(DAY_LOG_DIR, exist_ok=True)
+    FlipkartReader()
