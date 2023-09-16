@@ -12,7 +12,7 @@ import pandas as pd
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
-from kivy.uix.filechooser import FileChooserListView
+from kivy.uix.filechooser import FileChooserIconView
 from kivy.uix.textinput import TextInput
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -38,7 +38,7 @@ class InputForm(BoxLayout):
         self.pincode_input = TextInput(hint_text="Enter Pincode")
         self.threads_input = TextInput(hint_text="Enter Number of Threads")
 
-        self.folder_chooser = FileChooserListView()
+        self.folder_chooser = FileChooserIconView()
 
         self.submit_button = Button(text="Submit")
         self.submit_button.bind(on_press=self.on_submit)
