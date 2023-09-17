@@ -1,49 +1,56 @@
-import time
-
-from kivy.app import App
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.textinput import TextInput
-from kivy.uix.button import Button
-from kivy.uix.filechooser import FileChooserListView
+import tkinter as tk
+from tkinter import filedialog
 
 
-class InputForm(BoxLayout):
-    def __init__(self, **kwargs):
-        super(InputForm, self).__init__(**kwargs)
-        self.orientation = 'vertical'
+class InputForm(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Input Form")
 
-        self.pincode_input = TextInput(hint_text="Enter Pincode")
-        self.threads_input = TextInput(hint_text="Enter Number of Threads")
+        # Configure the root window to stretch
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(2, weight=1)
 
-        self.folder_chooser = FileChooserListView()
+        self.create_widgets()
 
-        self.submit_button = Button(text="Submit")
-        self.submit_button.bind(on_press=self.on_submit)
+    def create_widgets(self):
+        # Label and entry widget for the pincode
+        self.pincode_label = tk.Label(self, text="Enter Pincode:")
+        self.pincode_label.grid(row=0, column=0, padx=10, pady=5)
+        self.pincode_entry = tk.Entry(self)
+        self.pincode_entry.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
 
-        self.add_widget(self.pincode_input)
-        self.add_widget(self.threads_input)
-        self.add_widget(self.folder_chooser)
-        self.add_widget(self.submit_button)
+        # Label and entry widget for the folder path
+        self.folder_label = tk.Label(self, text="Select a Folder:")
+        self.folder_label.grid(row=1, column=0, padx=10, pady=5)
+        self.folder_path_var = tk.StringVar()
+        self.folder_path_entry = tk.Entry(self, textvariable=self.folder_path_var, state='readonly')
+        self.folder_path_entry.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
 
-    def on_submit(self, instance):
-        pincode = self.pincode_input.text
-        threads = self.threads_input.text
-        folder_path = self.folder_chooser.path
+        # Button to open the folder dialog
+        self.folder_browse_button = tk.Button(self, text="Browse", command=self.open_folder_dialog)
+        self.folder_browse_button.grid(row=1, column=2, padx=10, pady=5)
 
-        # You can use these values outside of the application.
-        # For example, print them to the console:
-        print(f"Pincode: {pincode}, Threads: {threads}, Folder: {folder_path}")
+        # Button to submit the form
+        self.submit_button = tk.Button(self, text="Submit", command=self.submit_and_close)
+        self.submit_button.grid(row=2, column=0, columnspan=3, padx=10, pady=10)
 
-        # Close the application
-        App.get_running_app().stop()
+    def open_folder_dialog(self):
+        folder_path = filedialog.askdirectory()
+        self.folder_path_var.set(folder_path)
+
+    def submit_and_close(self):
+        pincode = self.pincode_entry.get()
+        folder_path = self.folder_path_var.get()
+
+        # You can perform actions with the pincode and folder_path here
+        print(f"Pincode: {pincode}")
+        print(f"Folder Path: {folder_path}")
+
+        # Close the UI window
+        self.destroy()
 
 
-class MyApp(App):
-    def build(self):
-        return InputForm()
-
-
-if __name__ == '__main__':
-    MyApp().run()
-    print('He')
-    time.sleep(100)
+if __name__ == "__main__":
+    app = InputForm()
+    app.mainloop()
