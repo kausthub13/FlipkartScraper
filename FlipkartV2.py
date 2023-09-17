@@ -1,35 +1,21 @@
-import csv
 import datetime
 import inspect
-import json
 import logging
-import ntpath
 import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
-import tkinter as tk
-from mmap import mmap
-from tkinter import *
-from tkinter import filedialog, font
 
 import pandas as pd
-from kivy.app import App
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.button import Button
-from kivy.uix.filechooser import FileChooserIconView
-from kivy.uix.textinput import TextInput
 from selenium import webdriver
-from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
-# FIREFOX_PATH = ChromeDriverManager().install()
-FIREFOX_PATH=r'C:\Users\kesavadas.k\.wdm\drivers\chromedriver\win64\116.0.5845.188\chromedriver-win32\chromedriver.exe'
+FIREFOX_PATH = ChromeDriverManager().install()
+# FIREFOX_PATH=r'C:\Users\kesavadas.k\.wdm\drivers\chromedriver\win64\116.0.5845.188\chromedriver-win32\chromedriver.exe'
 print(FIREFOX_PATH)
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 FLIPKART_LINK = "https://www.flipkart.com/books/pr?sid=bks&q="
@@ -38,13 +24,10 @@ threads = None
 pincode = None
 folder_path = None
 
-# driver = webdriver.Chrome(service=Service(executable_path=FIREFOX_PATH))
-# driver.get('https://www.google.com')
-# print("Reached Here")
-# time.sleep(5)
 
 import tkinter as tk
 from tkinter import filedialog
+from tkinter import *
 
 
 class InputForm(tk.Tk):
@@ -95,51 +78,6 @@ class InputForm(tk.Tk):
 
         # Close the UI window
         self.destroy()
-
-
-
-# class InputForm(BoxLayout):
-#     def __init__(self, **kwargs):
-#         super(InputForm, self).__init__(**kwargs)
-#         self.orientation = 'vertical'
-#
-#         self.pincode_input = TextInput(hint_text="Enter Pincode",multiline=False,
-#             font_size=20,
-#             size_hint_y=None,
-#             height=50)
-#         self.threads_input = TextInput(hint_text="Enter Number of Threads",
-#             multiline=False,
-#             font_size=20,
-#             size_hint_y=None,
-#             height=50)
-#
-#         self.folder_chooser = FileChooserIconView(size_hint=(1, 1),path='.')
-#
-#         self.submit_button = Button(text="Submit",size_hint_y=None,
-#             height=50)
-#         self.submit_button.bind(on_press=self.on_submit)
-#
-#         self.add_widget(self.pincode_input)
-#         self.add_widget(self.threads_input)
-#         self.add_widget(self.folder_chooser)
-#         self.add_widget(self.submit_button)
-#
-#     def on_submit(self, instance):
-#         global pincode,threads,folder_path
-#         pincode = self.pincode_input.text
-#         threads = self.threads_input.text
-#         folder_path = self.folder_chooser.path
-#
-#         # You can use these values outside of the application.
-#         # For example, print them to the console:
-#         print(f"Pincode: {pincode}, Threads: {threads}, Folder: {folder_path}")
-#
-#         App.get_running_app().stop()
-
-
-class MyApp(App):
-    def build(self):
-        return InputForm()
 
 
 def set_logger(log_name=''):
